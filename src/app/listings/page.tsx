@@ -2,7 +2,7 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ListingCard } from "@/components/properties";
-import { fetchMslPropertyCards } from "@/services";
+import { fetchPropertyCards } from "@/services";
 import { filterPropertyCards } from "@/lib";
 
 export const metadata = {
@@ -18,7 +18,7 @@ interface ListingsPageProps {
 export default async function ListingsPage({ searchParams }: ListingsPageProps) {
   const params = await searchParams;
   const searchQuery = (params.search ?? "").trim();
-  const properties = await fetchMslPropertyCards();
+  const properties = await fetchPropertyCards();
   const filteredProperties = filterPropertyCards(properties, searchQuery);
 
   return (

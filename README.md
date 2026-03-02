@@ -28,7 +28,7 @@ The project is organized by responsibility:
 - `src/app`: routes and page composition
 - `src/components`: UI sections and reusable components
 - `src/actions`: server actions (orchestration only)
-- `src/services`: external I/O (MSL feed, lead webhook)
+- `src/services`: external I/O (Spark listings, legacy feed fallback, lead webhook)
 - `src/schemas`: validation contracts
 - `src/config`: env accessors
 - `src/lib`: pure helpers/utilities
@@ -68,23 +68,45 @@ The project is organized by responsibility:
 
 ## Listings Flow
 
-1. `fetchMslPropertyCards()` in `src/services/msl.service.ts` loads feed data from `MSL_FEED_URL`.
-2. If feed is unavailable, fallback demo listings are returned.
-3. `filterPropertyCards()` in `src/lib/properties.ts` applies search query filtering.
-4. Cards link into `/listings/[id]` detail pages.
+1. `fetchPropertyCards()` in `src/services/listings.service.ts` tries Spark first.
+2. `fetchSparkPropertyCards()` in `src/services/spark.service.ts` calls the Spark listings endpoint with a server-only bearer token.
+3. If Spark is not configured or fails, the app falls back to the legacy `MSL_FEED_URL` JSON feed.
+4. If neither source is available, curated demo listings keep the UI hydrated.
+5. `filterPropertyCards()` in `src/lib/properties.ts` applies search query filtering.
+6. Cards link into `/listings/[id]` detail pages.
 
 ## Lead Form Flow
 
 1. User submits `ContactForm`.
 2. `submitLead` server action validates input using `LeadSchema`.
-3. Action reads `ROLU_WEBHOOK_URL` via `getRoluWebhookUrl()`.
+3. Action reads the form-specific Rolu webhook URL from config.
 4. `leadSubmissionService.submit(...)` posts payload to webhook.
 5. UI shows success/error + field errors.
 
 ## Environment Variables
 
-- `ROLU_WEBHOOK_URL`: required for lead submissions
-- `MSL_FEED_URL`: optional JSON listings feed URL
+- `SPARK_ACCESS_TOKEN`: preferred server-only Spark access token
+- `SPARK_API_BASE_URL`: optional override, defaults to `https://sparkapi.com`
+- `SPARK_API_LISTINGS_PATH`: optional override, defaults to `/v1/listings`
+- `SPARK_LISTINGS_FILTER`: optional Spark `_filter` expression such as `ListStatus Eq 'Active'`
+- `SPARK_LISTINGS_LIMIT`: optional max listings to request, defaults to `24`
+- `ROLU_WEBHOOK_URL`: backward-compatible contact webhook fallback
+- `ROLU_WEBHOOK_CONTACT_URL`, `ROLU_WEBHOOK_SELL_URL`, `ROLU_WEBHOOK_RENT_URL`, `ROLU_WEBHOOK_JOIN_URL`: preferred lead webhook envs
+- `TURNSTILE_SECRET_KEY`: required for server-side captcha verification
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY`: required for the Turnstile widget
+- `MSL_FEED_URL`: optional legacy listings feed fallback
+
+## Spark Setup
+
+Spark access should be provisioned from the Spark dashboard as documented at [Set Up Access](https://sparkplatform.com/docs/overview/set_up_access). The current app expects the access token to be stored only in a server env var (`SPARK_ACCESS_TOKEN`) and sends it from the server in the `Authorization` header when requesting listings.
+
+Recommended rollout:
+
+1. Request Spark API access for the correct MLS/account from the Spark dashboard.
+2. Copy the issued access token/API key into `SPARK_ACCESS_TOKEN` in your deployment environment.
+3. Keep the token server-only. Do not expose it with a `NEXT_PUBLIC_` prefix and do not call Spark directly from client components.
+4. Set `SPARK_LISTINGS_FILTER` if your MLS requires narrowing to active listings or a specific office/agent slice.
+5. Leave `MSL_FEED_URL` unset once Spark is validated, or keep it temporarily as a fallback during cutover.
 
 ## Local Development
 
@@ -155,7 +177,9 @@ src/
 ├── services/
 │   ├── index.ts
 │   ├── lead.service.ts
-│   └── msl.service.ts
+│   ├── listings.service.ts
+│   ├── msl.service.ts
+│   └── spark.service.ts
 └── types/
     ├── index.ts
     ├── lead.ts
@@ -166,3 +190,4 @@ src/
 
 - `docs/ARCHITECTURE.md`
 - `docs/ROLU-WORKFLOW.md`
+- `docs/SPARK-SETUP.md`

@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
-import { fetchMslPropertyCards } from "@/services";
+import { fetchPropertyCards } from "@/services";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -11,7 +11,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps) {
   const { id } = await params;
-  const properties = await fetchMslPropertyCards();
+  const properties = await fetchPropertyCards();
   const property = properties.find((p) => p.id === id);
   if (!property) return { title: "Listing | Sandstone Real Estate Group" };
   return {
@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: PageProps) {
 
 export default async function ListingPage({ params }: PageProps) {
   const { id } = await params;
-  const properties = await fetchMslPropertyCards();
+  const properties = await fetchPropertyCards();
   const property = properties.find((p) => p.id === id);
 
   if (!property) notFound();

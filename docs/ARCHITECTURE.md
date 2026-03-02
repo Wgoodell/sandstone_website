@@ -8,7 +8,7 @@ This codebase is structured for a clean, maintainable marketing site with clear 
 - `components/`: presentational sections and reusable UI blocks
 - `actions/`: server-side orchestration (validation + service invocation)
 - `schemas/`: Zod contracts
-- `services/`: external I/O adapters (Rolu webhook, MSL feed)
+- `services/`: external I/O adapters (Spark listings, legacy feed fallback, Rolu webhook)
 - `config/`: environment access
 - `lib/`: pure helper functions
 - `types/`: shared domain contracts
@@ -27,7 +27,7 @@ This codebase is structured for a clean, maintainable marketing site with clear 
 ## Patterns in Use
 
 - **Service abstraction:** lead submission is encapsulated behind `ILeadSubmissionService`.
-- **Data normalization at boundaries:** `msl.service.ts` maps arbitrary feed items into the internal `PropertyCard` shape.
+- **Data normalization at boundaries:** `spark.service.ts` maps Spark listing payloads into the internal `PropertyCard` shape.
 - **Pure filtering helper:** listing search lives in `lib/properties.ts` (`filterPropertyCards`) so pages remain composition-focused.
 - **Section composition:** pages compose sections; sections consume typed props.
 
@@ -35,9 +35,10 @@ This codebase is structured for a clean, maintainable marketing site with clear 
 
 ### Home (`/`)
 
-1. Fetch listings from `fetchMslPropertyCards()`.
-2. Apply query filtering through `filterPropertyCards()`.
-3. Render hero, featured cards (first 4), action tiles, about, contact, footer.
+1. Fetch listings from `fetchPropertyCards()`.
+2. Try Spark API first, then legacy `MSL_FEED_URL`, then demo fallback data.
+3. Apply query filtering through `filterPropertyCards()`.
+4. Render hero, featured cards (first 4), action tiles, about, contact, footer.
 
 ### Listings (`/listings`)
 
@@ -55,7 +56,7 @@ This codebase is structured for a clean, maintainable marketing site with clear 
 
 1. `ContactForm` submits to `submitLead` server action.
 2. Action validates via `LeadSchema`.
-3. Action retrieves `ROLU_WEBHOOK_URL` from config.
+3. Action retrieves the form-specific Rolu webhook URL from config.
 4. Action calls `leadSubmissionService.submit(...)`.
 
 ## Folder Structure

@@ -4,8 +4,16 @@ Goal: keep listing data fresh and keep lead delivery reliable.
 
 ## Environment Contract
 
-- `MSL_FEED_URL`: endpoint returning an array of listings
-- `ROLU_WEBHOOK_URL`: incoming webhook endpoint for contact form leads
+- `SPARK_ACCESS_TOKEN`: primary server-only listings credential
+- `MSL_FEED_URL`: optional fallback endpoint returning an array of listings
+- `ROLU_WEBHOOK_URL`: backward-compatible contact webhook fallback
+- `ROLU_WEBHOOK_CONTACT_URL`, `ROLU_WEBHOOK_SELL_URL`, `ROLU_WEBHOOK_RENT_URL`, `ROLU_WEBHOOK_JOIN_URL`: preferred form-specific lead webhooks
+
+## Listings Source Order
+
+1. Spark API via `SPARK_ACCESS_TOKEN`
+2. Legacy `MSL_FEED_URL` JSON feed
+3. Curated demo listings fallback
 
 ## Listing Feed Shape
 
@@ -21,6 +29,8 @@ The app normalizes each feed item into:
 If feed data is missing/unavailable, the app shows fallback demo listings.
 
 ## Recommended Rolu Listing Workflow
+
+Use this only if you still need the legacy fallback feed during Spark rollout.
 
 1. Trigger on listing create/update.
 2. Send HTTP payload to your feed endpoint (`MSL_FEED_URL` destination).
@@ -57,6 +67,6 @@ Validation happens server-side before webhook submission.
 
 ## Operational Checks
 
-- If listings look stale, verify `MSL_FEED_URL` availability and payload format.
+- If listings look stale, verify Spark credentials first, then `MSL_FEED_URL` if the legacy fallback is enabled.
 - If form submissions fail, verify `ROLU_WEBHOOK_URL` and destination status.
 - Keep listing images accessible over HTTPS for best compatibility.
