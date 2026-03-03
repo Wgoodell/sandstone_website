@@ -35,21 +35,22 @@ This codebase is structured for a clean, maintainable marketing site with clear 
 
 ### Home (`/`)
 
-1. Fetch listings from `fetchPropertyCards()`.
-2. Try Spark API first, then legacy `MSL_FEED_URL`, then demo fallback data.
+1. Fetch listings from `fetchMyPropertyCards()`.
+2. Try Spark `my/listings` first, then legacy `MSL_FEED_URL`, then demo fallback data.
 3. Apply query filtering through `filterPropertyCards()`.
-4. Render hero, featured cards (first 4), action tiles, about, contact, footer.
+4. Render hero, carousel, action tiles, about, contact, footer.
 
 ### Listings (`/listings`)
 
-1. Fetch listings from the same service.
-2. Apply `?search=` query filter.
-3. Render full results grid via reusable `ListingCard`.
+1. Fetch listings from `fetchActivePropertyCards()`.
+2. Page through all active Spark listings before falling back.
+3. Apply `?search=` query filter.
+4. Render full results grid via reusable `ListingCard`.
 
 ### Listing Detail (`/listings/[id]`)
 
-1. Fetch normalized cards.
-2. Find by id.
+1. Fetch the listing directly by id.
+2. Fall back to legacy/demo sources if Spark is unavailable.
 3. Render detail view or `notFound()`.
 
 ### Lead Submission

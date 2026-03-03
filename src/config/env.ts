@@ -70,18 +70,32 @@ export function getSparkListingsPath(): string {
   return getEnv("SPARK_API_LISTINGS_PATH") ?? "/v1/listings";
 }
 
-export function getSparkListingsFilter(): string | undefined {
-  return getEnv("SPARK_LISTINGS_FILTER");
+export function getSparkMyListingsPath(): string {
+  return getEnv("SPARK_API_MY_LISTINGS_PATH") ?? "/v1/my/listings";
 }
 
-export function getSparkListingsLimit(): number {
-  const raw = getEnv("SPARK_LISTINGS_LIMIT");
+export function getSparkActiveListingsFilter(): string {
+  return getEnv("SPARK_ACTIVE_LISTINGS_FILTER") ??
+    getEnv("SPARK_LISTINGS_FILTER") ??
+    "MlsStatus Eq 'Active'";
+}
+
+export function getSparkMyListingsFilter(): string {
+  return getEnv("SPARK_MY_LISTINGS_FILTER") ?? getSparkActiveListingsFilter();
+}
+
+export function getSparkListingsPageSize(): number {
+  const raw = getEnv("SPARK_PAGE_SIZE") ?? getEnv("SPARK_LISTINGS_LIMIT");
 
   if (!raw) {
-    return 24;
+    return 25;
   }
 
   const parsed = Number.parseInt(raw, 10);
 
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 24;
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 25;
+  }
+
+  return Math.min(parsed, 25);
 }

@@ -22,19 +22,23 @@ Start with Spark's current access setup guide:
 SPARK_ACCESS_TOKEN=your_server_only_token
 SPARK_API_BASE_URL=https://sparkapi.com
 SPARK_API_LISTINGS_PATH=/v1/listings
-SPARK_LISTINGS_LIMIT=24
+SPARK_API_MY_LISTINGS_PATH=/v1/my/listings
+SPARK_PAGE_SIZE=25
+SPARK_ACTIVE_LISTINGS_FILTER=MlsStatus Eq 'Active'
 ```
 
 Optional:
 
 ```bash
-SPARK_LISTINGS_FILTER=ListStatus Eq 'Active'
+SPARK_MY_LISTINGS_FILTER=MlsStatus Eq 'Active'
 MSL_FEED_URL=https://example.com/legacy-listings-feed
 ```
 
 ## Implementation Notes
 
 - The app sends the token in the `Authorization` header from the server.
-- Spark is tried first for listings. If Spark is unavailable, the app can fall back to `MSL_FEED_URL`.
+- `/listings` paginates through all active listings from Spark because standard Spark requests cap `_limit` per page.
+- The home page uses Spark `my/listings` for the carousel.
+- If Spark is unavailable, the app can fall back to `MSL_FEED_URL`.
 - Listing payloads are normalized into the internal `PropertyCard` contract before reaching the UI.
 - Spark-hosted photo URLs are normalized to `https` when possible.

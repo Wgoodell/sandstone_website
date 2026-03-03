@@ -2,7 +2,7 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ListingCard } from "@/components/properties";
-import { fetchPropertyCards } from "@/services";
+import { fetchActivePropertyCards } from "@/services";
 import { filterPropertyCards } from "@/lib";
 
 export const metadata = {
@@ -18,7 +18,7 @@ interface ListingsPageProps {
 export default async function ListingsPage({ searchParams }: ListingsPageProps) {
   const params = await searchParams;
   const searchQuery = (params.search ?? "").trim();
-  const properties = await fetchPropertyCards();
+  const properties = await fetchActivePropertyCards();
   const filteredProperties = filterPropertyCards(properties, searchQuery);
 
   return (
@@ -38,7 +38,7 @@ export default async function ListingsPage({ searchParams }: ListingsPageProps) 
           <p className="mt-2 max-w-2xl text-[var(--sandstone-charcoal)]/80">
             {searchQuery
               ? `Results for "${searchQuery}".`
-              : "All available listings from our current feed."}
+              : "All active listings from the current Spark feed."}
           </p>
 
           {filteredProperties.length === 0 ? (

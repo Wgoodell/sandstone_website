@@ -4,7 +4,11 @@ import { cache } from "react";
 import type { PropertyCard } from "@/types";
 import { getMslFeedUrl, hasSparkAccessToken } from "@/config";
 import { fetchLegacyFeedPropertyCards } from "@/services/msl.service";
-import { fetchSparkPropertyCards } from "@/services/spark.service";
+import {
+  fetchAllActiveSparkPropertyCards,
+  fetchMySparkPropertyCards,
+  fetchSparkPropertyCardById,
+} from "@/services/spark.service";
 
 const FALLBACK_PROPERTIES: PropertyCard[] = [
   {
@@ -43,15 +47,7 @@ const FALLBACK_PROPERTIES: PropertyCard[] = [
   },
 ];
 
-async function fetchPropertyCardsUncached(): Promise<PropertyCard[]> {
-  if (hasSparkAccessToken()) {
-    try {
-      return await fetchSparkPropertyCards();
-    } catch (error) {
-      console.error("[Listings] Spark API failed, falling back.", error);
-    }
-  }
-
+async function fetchLegacyPropertyCardsOrFallback(): Promise<PropertyCard[]> {
   if (getMslFeedUrl()) {
     try {
       return await fetchLegacyFeedPropertyCards();
@@ -63,4 +59,49 @@ async function fetchPropertyCardsUncached(): Promise<PropertyCard[]> {
   return FALLBACK_PROPERTIES;
 }
 
-export const fetchPropertyCards = cache(fetchPropertyCardsUncached);
+async function fetchActivePropertyCardsUncached(): Promise<PropertyCard[]> {
+  if (hasSparkAccessToken()) {
+    try {
+      return await fetchAllActiveSparkPropertyCards();
+    } catch (error) {
+      console.error("[Listings] Active Spark listings failed, falling back.", error);
+    }
+  }
+
+  return fetchLegacyPropertyCardsOrFallback();
+}
+
+async function fetchMyPropertyCardsUncached(): Promise<PropertyCard[]> {
+  if (hasSparkAccessToken()) {
+    try {
+      return await fetchMySparkPropertyCards();
+    } catch (error) {
+      console.error("[Listings] My Spark listings failed, falling back.", error);
+    }
+  }
+
+  return fetchLegacyPropertyCardsOrFallback();
+}
+
+async function fetchPropertyCardByIdUncached(
+  id: string
+): Promise<PropertyCard | null> {
+  if (hasSparkAccessToken()) {
+    try {
+      const property = await fetchSparkPropertyCardById(id);
+
+      if (property) {
+        return property;
+      }
+    } catch (error) {
+      console.error("[Listings] Spark property lookup failed, falling back.", error);
+    }
+  }
+
+  const properties = await fetchLegacyPropertyCardsOrFallback();
+  return properties.find((property) => property.id === id) ?? null;
+}
+
+export const fetchActivePropertyCards = cache(fetchActivePropertyCardsUncached);
+export const fetchMyPropertyCards = cache(fetchMyPropertyCardsUncached);
+export const fetchPropertyCardById = cache(fetchPropertyCardByIdUncached);

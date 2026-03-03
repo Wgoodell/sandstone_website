@@ -3,18 +3,33 @@ import "server-only";
 import type { PropertyCard } from "@/types";
 import {
   getSparkAccessToken,
+  getSparkActiveListingsFilter,
   getSparkApiBaseUrl,
-  getSparkListingsFilter,
-  getSparkListingsLimit,
+  getSparkListingsPageSize,
   getSparkListingsPath,
+  getSparkMyListingsFilter,
+  getSparkMyListingsPath,
 } from "@/config";
 
 type UnknownRecord = Record<string, unknown>;
 type PathSegment = string | number;
+type SparkPagination = {
+  currentPage?: number;
+  totalPages?: number;
+  totalRows?: number;
+};
+type SparkCollectionRequest = {
+  path: string;
+  filter?: string;
+  page?: number;
+  includePagination?: boolean;
+};
 
 const SPARK_REVALIDATE_SECONDS = 300;
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1200&q=80";
+const DEFAULT_LOCATION = "El Paso, TX";
+const MAX_SPARK_PAGES = 400;
 
 function getRecord(value: unknown): UnknownRecord | null {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -145,24 +160,40 @@ function normalizeSparkImageUrl(value: string | undefined): string | undefined {
   return value;
 }
 
-function buildSparkListingsUrl(): string {
+function buildSparkUrl({
+  path,
+  filter,
+  page,
+  includePagination = false,
+}: SparkCollectionRequest): string {
   const baseUrl = new URL(getSparkApiBaseUrl());
 
   if (baseUrl.protocol !== "https:") {
     throw new Error("SPARK_API_BASE_URL must use https.");
   }
 
-  const url = new URL(getSparkListingsPath(), baseUrl);
-  url.searchParams.set("_limit", String(getSparkListingsLimit()));
+  const url = new URL(path, baseUrl);
+  url.searchParams.set("_limit", String(getSparkListingsPageSize()));
   url.searchParams.set("_expand", "PrimaryPhoto");
-
-  const filter = getSparkListingsFilter();
 
   if (filter) {
     url.searchParams.set("_filter", filter);
   }
 
+  if (includePagination) {
+    url.searchParams.set("_pagination", "1");
+  }
+
+  if (page && page > 1) {
+    url.searchParams.set("_page", String(page));
+  }
+
   return url.toString();
+}
+
+function buildSparkListingDetailPath(id: string): string {
+  const basePath = getSparkListingsPath().replace(/\/$/, "");
+  return `${basePath}/${encodeURIComponent(id)}`;
 }
 
 function extractResults(payload: unknown): unknown[] {
@@ -180,7 +211,26 @@ function extractResults(payload: unknown): unknown[] {
     }
   }
 
-  throw new Error("[Spark] Unexpected response shape.");
+  return [];
+}
+
+function extractPagination(payload: unknown): SparkPagination | undefined {
+  const root = getRecord(payload);
+  const wrapped = getRecord(root?.D);
+  const pagination =
+    getRecord(wrapped?.Pagination) ??
+    getRecord(root?.Pagination) ??
+    getRecord(root?.pagination);
+
+  if (!pagination) {
+    return undefined;
+  }
+
+  return {
+    currentPage: asNumber(pagination.CurrentPage),
+    totalPages: asNumber(pagination.TotalPages),
+    totalRows: asNumber(pagination.TotalRows),
+  };
 }
 
 function buildTitle(record: UnknownRecord, id: string): string {
@@ -228,7 +278,7 @@ function buildLocation(record: UnknownRecord): string {
         ["StandardFields", "CountyOrParish"],
         ["PostalCity"]
       )
-    ) ?? "El Paso, TX"
+    ) ?? DEFAULT_LOCATION
   );
 }
 
@@ -264,31 +314,10 @@ function mapSparkListing(item: unknown, index: number): PropertyCard {
         ["id"]
       )
     ) ?? `spark-${index}`;
-  const title = buildTitle(record, id);
-  const beds = asNumber(
-    pickFirst(
-      record,
-      ["BedroomsTotal"],
-      ["BedsTotal"],
-      ["StandardFields", "BedroomsTotal"],
-      ["StandardFields", "BedsTotal"]
-    )
-  );
-  const baths = asNumber(
-    pickFirst(
-      record,
-      ["BathroomsTotalDecimal"],
-      ["BathroomsTotalInteger"],
-      ["BathsTotal"],
-      ["StandardFields", "BathroomsTotalDecimal"],
-      ["StandardFields", "BathroomsTotalInteger"],
-      ["StandardFields", "BathsTotal"]
-    )
-  );
 
   return {
     id,
-    title,
+    title: buildTitle(record, id),
     location: buildLocation(record),
     price: formatPrice(
       pickFirst(
@@ -300,8 +329,26 @@ function mapSparkListing(item: unknown, index: number): PropertyCard {
       )
     ),
     image: extractImage(record),
-    beds,
-    baths,
+    beds: asNumber(
+      pickFirst(
+        record,
+        ["BedroomsTotal"],
+        ["BedsTotal"],
+        ["StandardFields", "BedroomsTotal"],
+        ["StandardFields", "BedsTotal"]
+      )
+    ),
+    baths: asNumber(
+      pickFirst(
+        record,
+        ["BathroomsTotalDecimal"],
+        ["BathroomsTotalInteger"],
+        ["BathsTotal"],
+        ["StandardFields", "BathroomsTotalDecimal"],
+        ["StandardFields", "BathroomsTotalInteger"],
+        ["StandardFields", "BathsTotal"]
+      )
+    ),
     sqft: formatSqft(
       pickFirst(
         record,
@@ -315,28 +362,128 @@ function mapSparkListing(item: unknown, index: number): PropertyCard {
   };
 }
 
-export async function fetchSparkPropertyCards(): Promise<PropertyCard[]> {
+function getSparkHeaders(accessToken: string): HeadersInit {
+  return {
+    Accept: "application/json",
+    Authorization: `Bearer ${accessToken}`,
+  };
+}
+
+async function fetchSparkPayload(url: string): Promise<Response> {
   const accessToken = getSparkAccessToken();
 
   if (!accessToken) {
     throw new Error("SPARK_ACCESS_TOKEN is not set.");
   }
 
-  const response = await fetch(buildSparkListingsUrl(), {
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
+  return fetch(url, {
+    headers: getSparkHeaders(accessToken),
     next: { revalidate: SPARK_REVALIDATE_SECONDS },
   });
+}
+
+async function fetchSparkCollectionPage(
+  request: SparkCollectionRequest
+): Promise<{ properties: PropertyCard[]; pagination?: SparkPagination }> {
+  const response = await fetchSparkPayload(
+    buildSparkUrl({ ...request, includePagination: true })
+  );
 
   if (!response.ok) {
     const responseText = await response.text();
     throw new Error(
-      `[Spark] Listings request failed (${response.status}): ${responseText.slice(0, 400)}`
+      `[Spark] Collection request failed (${response.status}): ${responseText.slice(0, 400)}`
     );
   }
 
   const payload = (await response.json()) as unknown;
-  return extractResults(payload).map(mapSparkListing);
+  const results = extractResults(payload);
+
+  return {
+    properties: results.map(mapSparkListing),
+    pagination: extractPagination(payload),
+  };
+}
+
+async function fetchAllSparkPropertyCards(
+  path: string,
+  filter?: string
+): Promise<PropertyCard[]> {
+  const pageSize = getSparkListingsPageSize();
+  const properties: PropertyCard[] = [];
+  const seenIds = new Set<string>();
+  let page = 1;
+  let totalPages: number | undefined;
+
+  while (page <= (totalPages ?? MAX_SPARK_PAGES)) {
+    const { properties: pageProperties, pagination } =
+      await fetchSparkCollectionPage({
+        path,
+        filter,
+        page,
+      });
+
+    for (const property of pageProperties) {
+      if (seenIds.has(property.id)) {
+        continue;
+      }
+
+      seenIds.add(property.id);
+      properties.push(property);
+    }
+
+    totalPages = pagination?.totalPages ?? totalPages;
+
+    const hasMorePages = totalPages
+      ? page < totalPages
+      : pageProperties.length === pageSize;
+
+    if (!hasMorePages) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return properties;
+}
+
+export async function fetchAllActiveSparkPropertyCards(): Promise<PropertyCard[]> {
+  return fetchAllSparkPropertyCards(
+    getSparkListingsPath(),
+    getSparkActiveListingsFilter()
+  );
+}
+
+export async function fetchMySparkPropertyCards(): Promise<PropertyCard[]> {
+  return fetchAllSparkPropertyCards(
+    getSparkMyListingsPath(),
+    getSparkMyListingsFilter()
+  );
+}
+
+export async function fetchSparkPropertyCardById(
+  id: string
+): Promise<PropertyCard | null> {
+  const response = await fetchSparkPayload(
+    buildSparkUrl({
+      path: buildSparkListingDetailPath(id),
+    })
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    const responseText = await response.text();
+    throw new Error(
+      `[Spark] Listing request failed (${response.status}): ${responseText.slice(0, 400)}`
+    );
+  }
+
+  const payload = (await response.json()) as unknown;
+  const [listing] = extractResults(payload);
+
+  return listing ? mapSparkListing(listing, 0) : null;
 }

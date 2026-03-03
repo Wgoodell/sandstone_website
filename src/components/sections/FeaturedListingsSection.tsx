@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { PropertyCard } from "@/types";
-import { ListingCard } from "@/components/properties";
+import { ListingCarousel } from "@/components/properties";
 
 interface FeaturedListingsSectionProps {
   properties: PropertyCard[];
@@ -11,7 +11,6 @@ export function FeaturedListingsSection({
   properties,
   searchQuery = "",
 }: FeaturedListingsSectionProps) {
-  const displayList = properties.slice(0, 4);
   const viewMoreHref = searchQuery
     ? `/listings?search=${encodeURIComponent(searchQuery)}`
     : "/listings";
@@ -23,35 +22,29 @@ export function FeaturedListingsSection({
     >
       <div className="container mx-auto max-w-6xl px-4">
         <h2 className="text-center font-heading text-3xl font-bold text-[var(--sandstone-charcoal)] md:text-[2rem]">
-          Sandstone Collection
+          My Listings
         </h2>
         <p className="mx-auto mt-2 max-w-2xl text-center text-sm text-[var(--sandstone-charcoal)]/70">
-          Curated listings in El Paso and the Southwest.
+          {searchQuery
+            ? `Showing matches from my Flexmls listings for "${searchQuery}".`
+            : "A carousel of my current Flexmls listings."}
         </p>
 
-        {displayList.length === 0 ? (
+        {properties.length === 0 ? (
           <p className="mx-auto mt-10 max-w-xl rounded-xl border border-[var(--sandstone-navy)]/10 bg-white px-4 py-6 text-center text-sm text-[var(--sandstone-charcoal)]/85">
             No listings matched <strong>{searchQuery}</strong>. Try a different search.
           </p>
         ) : (
-          <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {displayList.map((property, index) => (
-              <ListingCard
-                key={property.id}
-                property={property}
-                priority={index < 2}
-              />
-            ))}
-          </div>
+          <ListingCarousel properties={properties} />
         )}
 
-        {displayList.length > 0 && (
+        {properties.length > 0 && (
           <div className="mt-8 flex justify-center">
             <Link
               href={viewMoreHref}
               className="inline-flex w-full max-w-xs items-center justify-center rounded-full bg-[var(--sandstone-sand-gold)] px-6 py-2 text-sm font-semibold text-white transition hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sandstone-sand-gold)] focus-visible:ring-offset-2 sm:w-[180px]"
             >
-              View More
+              View All Active Listings
             </Link>
           </div>
         )}

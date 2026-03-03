@@ -4,7 +4,7 @@ import { FeaturedListingsSection } from "@/components/sections/FeaturedListingsS
 import { PrimaryActionTiles } from "@/components/sections/PrimaryActionTiles";
 import { ContactForm } from "@/components/ContactForm";
 import { SiteFooter } from "@/components/SiteFooter";
-import { fetchPropertyCards } from "@/services";
+import { fetchMyPropertyCards } from "@/services";
 import { filterPropertyCards } from "@/lib";
 
 interface HomePageProps {
@@ -14,7 +14,7 @@ interface HomePageProps {
 export default async function Home({ searchParams }: HomePageProps) {
   const params = await searchParams;
   const searchQuery = (params.search ?? "").trim();
-  const properties = await fetchPropertyCards();
+  const properties = await fetchMyPropertyCards();
   const filteredProperties = filterPropertyCards(properties, searchQuery);
 
   return (

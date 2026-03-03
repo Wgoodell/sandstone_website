@@ -1,9 +1,11 @@
 export {
   getSparkAccessToken,
+  getSparkActiveListingsFilter,
   getSparkApiBaseUrl,
-  getSparkListingsFilter,
-  getSparkListingsLimit,
+  getSparkListingsPageSize,
   getSparkListingsPath,
+  getSparkMyListingsFilter,
+  getSparkMyListingsPath,
   hasSparkAccessToken,
   getLeadWebhookUrl,
   getMslFeedUrl,
