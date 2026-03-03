@@ -1,4 +1,9 @@
-export type { PropertyCard } from "./property";
+export type {
+  PropertyCard,
+  PropertyDetail,
+  PropertyMetadataItem,
+  PropertyMetadataSection,
+} from "./property";
 export type {
   ContactLeadWebhookPayload,
   JoinLeadWebhookPayload,

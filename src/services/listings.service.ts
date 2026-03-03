@@ -1,13 +1,14 @@
 import "server-only";
 
 import { cache } from "react";
-import type { PropertyCard } from "@/types";
+import type { PropertyCard, PropertyDetail } from "@/types";
 import { getMslFeedUrl, hasSparkAccessToken } from "@/config";
 import { fetchLegacyFeedPropertyCards } from "@/services/msl.service";
 import {
   fetchAllActiveSparkPropertyCards,
   fetchMySparkPropertyCards,
   fetchSparkPropertyCardById,
+  fetchSparkPropertyDetailById,
 } from "@/services/spark.service";
 
 type ListingsTarget = "active" | "my";
@@ -26,7 +27,9 @@ export interface ListingsDiagnostics {
   target: ListingsTarget;
   source: ListingsSource;
   count: number;
-  sample: Array<Pick<PropertyCard, "id" | "title" | "location" | "price">>;
+  sample: Array<
+    Pick<PropertyCard, "id" | "title" | "location" | "price" | "image" | "listingNumber">
+  >;
   sparkConfigured: boolean;
   legacyFeedConfigured: boolean;
   sparkError?: string;
@@ -84,6 +87,29 @@ function formatError(error: unknown): string {
   } catch {
     return "Unknown error";
   }
+}
+
+function mapFallbackCardToDetail(property: PropertyCard): PropertyDetail {
+  return {
+    ...property,
+    images: [property.image],
+    metadataSections: [
+      {
+        title: "Overview",
+        items: [
+          { label: "Price", value: property.price },
+          { label: "Location", value: property.location },
+          ...(property.beds != null
+            ? [{ label: "Bedrooms", value: String(property.beds) }]
+            : []),
+          ...(property.baths != null
+            ? [{ label: "Bathrooms", value: String(property.baths) }]
+            : []),
+          ...(property.sqft ? [{ label: "Living Area", value: property.sqft }] : []),
+        ],
+      },
+    ],
+  };
 }
 
 async function fetchLegacyPropertyCardsOrFallback(
@@ -157,9 +183,11 @@ function buildListingsDiagnostics(
     count: resolution.properties.length,
     sample: resolution.properties.slice(0, 3).map((property) => ({
       id: property.id,
+      listingNumber: property.listingNumber,
       title: property.title,
       location: property.location,
       price: property.price,
+      image: property.image,
     })),
     sparkConfigured: hasSparkAccessToken(),
     legacyFeedConfigured: Boolean(getMslFeedUrl()),
@@ -205,6 +233,27 @@ async function fetchPropertyCardByIdUncached(
   return fallback.properties.find((property) => property.id === id) ?? null;
 }
 
+async function fetchPropertyDetailByIdUncached(
+  id: string
+): Promise<PropertyDetail | null> {
+  if (hasSparkAccessToken()) {
+    try {
+      const property = await fetchSparkPropertyDetailById(id);
+
+      if (property) {
+        return property;
+      }
+    } catch (error) {
+      console.error("[Listings] Spark property detail lookup failed, falling back.", error);
+    }
+  }
+
+  const fallback = await fetchLegacyPropertyCardsOrFallback();
+  const property = fallback.properties.find((item) => item.id === id);
+  return property ? mapFallbackCardToDetail(property) : null;
+}
+
 export const fetchActivePropertyCards = cache(fetchActivePropertyCardsUncached);
 export const fetchMyPropertyCards = cache(fetchMyPropertyCardsUncached);
 export const fetchPropertyCardById = cache(fetchPropertyCardByIdUncached);
+export const fetchPropertyDetailById = cache(fetchPropertyDetailByIdUncached);
