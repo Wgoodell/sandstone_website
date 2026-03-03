@@ -404,6 +404,49 @@ function extractResults(payload: unknown): unknown[] {
   return [];
 }
 
+function looksLikeSparkListingRecord(record: UnknownRecord): boolean {
+  return [
+    "ListingKey",
+    "ListingId",
+    "Id",
+    "StandardFields",
+    "UnparsedAddress",
+    "PublicRemarks",
+    "City",
+    "ListPrice",
+    "CurrentPrice",
+    "MlsStatus",
+    "Photos",
+    "PrimaryPhoto",
+  ].some((key) => record[key] != null);
+}
+
+function extractFirstSparkRecord(payload: unknown): UnknownRecord | null {
+  const [firstResult] = extractResults(payload);
+  const resultRecord = getRecord(firstResult);
+
+  if (resultRecord) {
+    return resultRecord;
+  }
+
+  const root = getRecord(payload);
+  const wrapped = getRecord(root?.D);
+  const candidates = [
+    wrapped,
+    root,
+    getRecord(root?.result),
+    getRecord(root?.value),
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate && looksLikeSparkListingRecord(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 function extractPagination(payload: unknown): SparkPagination | undefined {
   const root = getRecord(payload);
   const wrapped = getRecord(root?.D);
@@ -1075,7 +1118,7 @@ async function fetchSparkListingRecord(
   options?: SparkFetchOptions
 ): Promise<UnknownRecord | null> {
   const { results } = await fetchSparkResults(request, options);
-  return getRecord(results[0]) ?? null;
+  return extractFirstSparkRecord(results) ?? null;
 }
 
 async function fetchSparkListingRecordByRouteId(
@@ -1093,8 +1136,13 @@ async function fetchSparkListingRecordByRouteId(
 
     if (response.ok) {
       const payload = (await response.json()) as unknown;
-      const [listing] = extractResults(payload);
-      return getRecord(listing) ?? null;
+      const record = extractFirstSparkRecord(payload);
+
+      if (record) {
+        return record;
+      }
+
+      continue;
     }
 
     if (response.status !== 404) {

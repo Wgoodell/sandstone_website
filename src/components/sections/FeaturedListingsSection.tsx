@@ -11,10 +11,6 @@ export function FeaturedListingsSection({
   properties,
   searchQuery = "",
 }: FeaturedListingsSectionProps) {
-  const viewMoreHref = searchQuery
-    ? `/listings?search=${encodeURIComponent(searchQuery)}`
-    : "/listings";
-
   return (
     <section
       id="listings"
@@ -41,7 +37,7 @@ export function FeaturedListingsSection({
         {properties.length > 0 && (
           <div className="mt-8 flex justify-center">
             <Link
-              href={viewMoreHref}
+              href="/listings"
               className="inline-flex w-full max-w-xs items-center justify-center rounded-full bg-[var(--sandstone-sand-gold)] px-6 py-2 text-sm font-semibold text-white transition hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sandstone-sand-gold)] focus-visible:ring-offset-2 sm:w-[180px]"
             >
               View All Active Listings
