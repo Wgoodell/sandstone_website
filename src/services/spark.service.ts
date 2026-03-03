@@ -219,9 +219,13 @@ function buildSparkUrl({
   return url.toString();
 }
 
-function buildSparkListingDetailPath(id: string): string {
-  const basePath = getSparkListingsPath().replace(/\/$/, "");
+function buildSparkListingDetailPath(path: string, id: string): string {
+  const basePath = path.replace(/\/$/, "");
   return `${basePath}/${encodeURIComponent(id)}`;
+}
+
+function getSparkLookupPaths(): string[] {
+  return [...new Set([getSparkListingsPath(), getSparkMyListingsPath()])];
 }
 
 function usesReplicationHost(url: string): boolean {
@@ -1078,39 +1082,43 @@ async function fetchSparkListingRecordByRouteId(
   id: string,
   options?: SparkFetchOptions
 ): Promise<UnknownRecord | null> {
-  const response = await fetchSparkPayload(
-    buildSparkUrl({
-      path: buildSparkListingDetailPath(id),
-      expand: DETAIL_EXPANSIONS,
-    }),
-    options
-  );
-
-  if (response.ok) {
-    const payload = (await response.json()) as unknown;
-    const [listing] = extractResults(payload);
-    return getRecord(listing) ?? null;
-  }
-
-  if (response.status !== 404) {
-    const responseText = await response.text();
-    throw new Error(
-      `[Spark] Listing request failed (${response.status}): ${responseText.slice(0, 400)}`
-    );
-  }
-
-  for (const filter of buildIdentifierFilters(id)) {
-    const record = await fetchSparkListingRecord(
-      {
-        path: getSparkListingsPath(),
-        filter,
+  for (const path of getSparkLookupPaths()) {
+    const response = await fetchSparkPayload(
+      buildSparkUrl({
+        path: buildSparkListingDetailPath(path, id),
         expand: DETAIL_EXPANSIONS,
-      },
+      }),
       options
     );
 
-    if (record) {
-      return record;
+    if (response.ok) {
+      const payload = (await response.json()) as unknown;
+      const [listing] = extractResults(payload);
+      return getRecord(listing) ?? null;
+    }
+
+    if (response.status !== 404) {
+      const responseText = await response.text();
+      throw new Error(
+        `[Spark] Listing request failed (${response.status}): ${responseText.slice(0, 400)}`
+      );
+    }
+  }
+
+  for (const path of getSparkLookupPaths()) {
+    for (const filter of buildIdentifierFilters(id)) {
+      const record = await fetchSparkListingRecord(
+        {
+          path,
+          filter,
+          expand: DETAIL_EXPANSIONS,
+        },
+        options
+      );
+
+      if (record) {
+        return record;
+      }
     }
   }
 
