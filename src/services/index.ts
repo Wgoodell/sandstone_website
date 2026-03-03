@@ -7,6 +7,7 @@ export {
   fetchActivePropertyCards,
   fetchMyPropertyCards,
   fetchPropertyCardById,
+  fetchPropertyDetailById,
 } from "./listings.service";
 export {
   captchaVerificationService,
