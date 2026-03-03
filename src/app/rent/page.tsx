@@ -3,7 +3,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { LeadCaptureSection } from "@/components/LeadCaptureSection";
 
 export const metadata = {
-  title: "Rent My House | Sandstone Real Estate Group!",
+  title: "Rent My House | Sandstone Real Estate Group",
   description: "Rental expertise in El Paso. We help landlords and tenants find the right fit.",
 };
 
@@ -15,7 +15,7 @@ export default function RentPage() {
         <LeadCaptureSection
           formType="rent"
           sectionId="rent-lead"
-          heading="Rent My House"
+          heading="Rent My House!"
           subheading="Share your rental goals and property details, and we&apos;ll help you map the next steps."
           showAside={false}
           ctaLabel="START MY RENTAL CONSULTATION"
