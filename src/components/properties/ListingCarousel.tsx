@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useEffectEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { PropertyCard } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -15,24 +15,22 @@ export function ListingCarousel({ properties }: ListingCarouselProps) {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(properties.length > 1);
 
-  const updateScrollState = useEffectEvent(() => {
-    const container = containerRef.current;
-
-    if (!container) {
-      setCanScrollLeft(false);
-      setCanScrollRight(properties.length > 1);
-      return;
-    }
-
-    const maxScrollLeft = container.scrollWidth - container.clientWidth;
-    setCanScrollLeft(container.scrollLeft > 8);
-    setCanScrollRight(maxScrollLeft - container.scrollLeft > 8);
-  });
-
   useEffect(() => {
     const container = containerRef.current;
+    const updateScrollState = () => {
+      if (!container) {
+        setCanScrollLeft(false);
+        setCanScrollRight(properties.length > 1);
+        return;
+      }
+
+      const maxScrollLeft = container.scrollWidth - container.clientWidth;
+      setCanScrollLeft(container.scrollLeft > 8);
+      setCanScrollRight(maxScrollLeft - container.scrollLeft > 8);
+    };
 
     if (!container) {
+      updateScrollState();
       return;
     }
 
@@ -53,7 +51,7 @@ export function ListingCarousel({ properties }: ListingCarouselProps) {
       container.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleResize);
     };
-  }, [properties.length, updateScrollState]);
+  }, [properties.length]);
 
   const scrollByViewport = (direction: "left" | "right") => {
     const container = containerRef.current;
